@@ -128,8 +128,8 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Rider
-.rider/
+# Pycharm
+.idea/
 
 # Secrets
 config.py
