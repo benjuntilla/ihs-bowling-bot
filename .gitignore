@@ -131,5 +131,6 @@ dmypy.json
 # Pycharm
 .idea/
 
-# Secrets
+# Secrets/state
 config.py
+bot-state
