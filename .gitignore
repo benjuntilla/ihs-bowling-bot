@@ -133,4 +133,4 @@ dmypy.json
 
 # Secrets/state
 config.py
-bot-state
+bot_state.json

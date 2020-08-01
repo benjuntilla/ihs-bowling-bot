@@ -1,7 +1,7 @@
 import config
 import discord
-from discord.ext import commands
-import shelve
+from discord.ext import commands, tasks
+import json
 import time
 import typing
 
@@ -49,25 +49,35 @@ class Administration(commands.Cog):
 
     @commands.command(brief="Put someone in the brig")
     async def brig(self, ctx, member: discord.Member, duration: typing.Optional[int]):
-        with shelve.open("bot-state", "c") as shelf:
-            brig_dict1 = {member.id: [time.time(), time.time() + (duration * 60)] if duration is not None else [0, 0]}
-            brig_dict2 = shelf["brigMembers"] if "brigMembers" in shelf else {}
-            shelf["brigMembers"] = {**brig_dict1, **brig_dict2}
+        with open("bot_state.json", "r+") as file:
+            data = json.load(file)
+            guild_data = data.get(ctx.guild.id, {})
+            brig_dict1 = {member.id: [time.time(), time.time() + (duration * 60)] if duration else [0, 0]}
+            brig_dict2 = guild_data.get("brigMembers", {})
+            guild_data["brigMembers"] = {**brig_dict1, **brig_dict2}
+            data[ctx.guild.id] = guild_data
+            file.seek(0)
+            json.dump(data, file)
+            file.truncate()
         role = discord.utils.get(ctx.guild.roles, name="THE BRIG")
         if role is None:
             await ctx.send("No role named \"THE BRIG\" exists! Please create one before using this command.")
             return
         else:
+            # TODO: Add event logging to file
+            # TODO: Add event logging to server
             await member.add_roles(role, reason="Put in the brig")
             await ctx.send("Added {0} to the brig for {1} minutes."
                            .format(member.mention, duration if duration is not None else "indefinite"))
 
     @commands.command(brief="Remove someone from the brig")
     async def unbrig(self, ctx, member: discord.Member):
-        with shelve.open("bot-state", "c") as shelf:
-            brig_dict = shelf["brigMembers"] if "brigMembers" in shelf else {}
-            brig_dict.pop(member.id, None)
-            shelf["brigMembers"] = brig_dict
+        with open("bot_state.json", "r+") as file:
+            data = json.load(file)
+            data[str(ctx.guild.id)]["brigMembers"].pop(str(member.id), None)
+            file.seek(0)
+            json.dump(data, file)
+            file.truncate()
         role = discord.utils.get(ctx.guild.roles, name="THE BRIG")
         if role is None:
             await ctx.send("No role named \"THE BRIG\" exists! Please create one before using this command.")
@@ -77,16 +87,6 @@ class Administration(commands.Cog):
             await ctx.send("Removed {0} from the brig.".format(member.mention))
 
     # TODO: automatically remove people from the brig
-
-
-@bot.event
-async def on_ready():
-    print('------')
-    print('Logged in as')
-    print(bot.user.name)
-    print(bot.user.id)
-    print('------')
-    await bot.change_presence(activity=discord.Game(name='bowling :)'))
 
 
 allowed_errors = {NotAdministrator, commands.NoPrivateMessage, commands.MissingRequiredArgument,
@@ -105,8 +105,19 @@ async def on_command_error(ctx, error):
     if is_allowed_error(error):
         await ctx.send(error)
     else:
+        # TODO: Add error logging to file
         await ctx.send("Unknown issue. Contact fest1ve#4958 for help.")
         raise error
+
+
+@bot.event
+async def on_ready():
+    print('------')
+    print('Logged in as')
+    print(bot.user.name)
+    print(bot.user.id)
+    print('------')
+    await bot.change_presence(activity=discord.Game(name='bowling :)'))
 
 
 bot.add_cog(General(bot))
