@@ -12,14 +12,15 @@ class NotAdministrator(commands.CheckFailure):
     pass
 
 
+def is_in_dms(ctx):
+    if ctx.guild is None:
+        raise commands.NoPrivateMessage("Why are you performing this command in DMs?")
+    return True
+
+
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    def cog_check(self, ctx):
-        if ctx.guild is None:
-            raise commands.NoPrivateMessage("Why are you performing this command in DMs?")
-        return True
 
     @commands.command(hidden=True)
     @commands.is_owner()
@@ -29,6 +30,7 @@ class General(commands.Cog):
 
     @commands.command()
     @commands.has_role('test')
+    @commands.check(is_in_dms)
     async def poke(self, ctx):
         await ctx.author.send('boop')
         await ctx.message.delete()
@@ -87,10 +89,20 @@ async def on_ready():
     await bot.change_presence(activity=discord.Game(name='bowling :)'))
 
 
+allowed_errors = {NotAdministrator, commands.NoPrivateMessage, commands.MissingRequiredArgument,
+                  commands.CommandNotFound, commands.MissingRole}
+
+
+def is_allowed_error(error):
+    for allowed_error in allowed_errors:
+        if isinstance(error, allowed_error):
+            return True
+    return False
+
+
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, NotAdministrator) or isinstance(error, commands.NoPrivateMessage) \
-            or isinstance(error, commands.MissingRequiredArgument):
+    if is_allowed_error(error):
         await ctx.send(error)
     else:
         await ctx.send("Unknown issue. Contact fest1ve#4958 for help.")
