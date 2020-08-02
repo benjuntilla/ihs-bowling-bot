@@ -1,7 +1,9 @@
 import config
+from datetime import datetime
 import discord
 from discord.ext import commands, tasks
 import json
+from pytz import timezone
 import time
 import typing
 
@@ -23,6 +25,10 @@ async def try_system_message(guild, message):
         await guild.system_channel.send(message)
 
 
+def convert_unix_tz(time):
+    return datetime.fromtimestamp(time, tz=timezone("America/Phoenix")).strftime('%d/%m/%Y, %I:%M %p')
+
+
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -30,7 +36,7 @@ class General(commands.Cog):
     @commands.command(hidden=True)
     @commands.is_owner()
     async def quit(self, ctx):
-        await ctx.send("Goodbye!")
+        await ctx.send("bye bye :neutral_face:")
         await bot.close()
 
     @commands.command()
@@ -59,12 +65,32 @@ class Administration(commands.Cog):
         return True
 
     @commands.command(brief="Put someone in the brig")
-    async def brig(self, ctx, member: discord.Member, duration: typing.Optional[int]):
+    async def brig(self, ctx, member: discord.Member, duration: typing.Optional[float]):
+        try:
+            convert_unix_tz(time.time() + (duration * 60))
+        except:
+            await ctx.send("Stop spamming numbers!")
+            return
         await self.add_to_brig(ctx.guild, member, duration)
 
     @commands.command(brief="Remove someone from the brig")
     async def unbrig(self, ctx, member: discord.Member):
         await self.remove_from_brig(ctx.guild, member)
+
+    @commands.command(brief="List brig members and their sentences")
+    async def listbrig(self, ctx):
+        brig_members = self.state_data[str(ctx.guild.id)]["brigMembers"]
+        if brig_members == {}:
+            await ctx.send("No one is in the brig! You can help change that.")
+            return
+        embed = discord.Embed(title="The Brig", color=discord.Color.orange())
+        for member_id, duration in brig_members.items():
+            member = ctx.guild.get_member(int(member_id))
+            duration_formatted = "{0} — {1} ({2} minutes)".format(
+                convert_unix_tz(duration[0]), convert_unix_tz(duration[1]), round((duration[1] - duration[0]) / 60, 2)
+            ) if duration[1] != 0 else "Indefinite"
+            embed.add_field(name=member.name + "#" + member.discriminator, value=duration_formatted, inline=True)
+        await ctx.send(embed=embed)
 
     @tasks.loop(seconds=1.0)
     async def update_brig_members(self):
@@ -92,13 +118,13 @@ class Administration(commands.Cog):
             message = "Removed {0} from the brig.".format(member.mention)
             await try_system_message(guild, message)
 
-    async def add_to_brig(self, guild: discord.Guild, member: discord.Member, duration: typing.Optional[int]):
+    async def add_to_brig(self, guild: discord.Guild, member: discord.Member, duration: typing.Optional[float]):
         with open("bot_state.json", "r+") as file:
             self.state_data = json.load(file)
             guild_data = self.state_data.get(str(guild.id), {})
-            brig_dict1 = {member.id: [time.time(), time.time() + (duration * 60)] if duration else [0, 0]}
+            brig_dict1 = {str(member.id): [time.time(), time.time() + (duration * 60)] if duration else [0, 0]}
             brig_dict2 = guild_data.get("brigMembers", {})
-            guild_data["brigMembers"] = {**brig_dict1, **brig_dict2}
+            guild_data["brigMembers"] = {**brig_dict2, **brig_dict1}
             self.state_data[str(guild.id)] = guild_data
             file.seek(0)
             json.dump(self.state_data, file)
@@ -112,11 +138,9 @@ class Administration(commands.Cog):
             # TODO: Add event logging to file
             # TODO: Add event logging to server
             await member.add_roles(role, reason="Put in the brig")
-            message = "Added {0} to the brig for {1} minutes."\
-                .format(member.mention, duration if duration is not None else "indefinite")
+            message = "Added {0} to the brig {1}."\
+                .format(member.mention, "for " + str(duration) + " minutes" if duration else "indefinitely")
             await try_system_message(guild, message)
-
-    # TODO: Add command for showing brig members
 
 
 allowed_errors = {NotAdministrator, commands.NoPrivateMessage, commands.MissingRequiredArgument,
