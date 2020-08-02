@@ -3,8 +3,8 @@ from datetime import datetime
 import discord
 from discord.ext import commands, tasks
 import json
+import os
 from pytz import timezone
-import secrets
 import time
 import typing
 
@@ -177,4 +177,4 @@ async def on_ready():
 
 bot.add_cog(General(bot))
 bot.add_cog(Administration(bot))
-bot.run(secrets.TOKEN)
+bot.run(os.getenv("IHSBOT_TOKEN"))

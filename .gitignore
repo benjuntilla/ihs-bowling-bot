@@ -132,5 +132,4 @@ dmypy.json
 .idea/
 
 # Secrets/state
-secrets.py
 bot_state.json
