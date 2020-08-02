@@ -1,9 +1,10 @@
-import config
+from config import *
 from datetime import datetime
 import discord
 from discord.ext import commands, tasks
 import json
 from pytz import timezone
+import secrets
 import time
 import typing
 
@@ -16,7 +17,7 @@ class NotAdministrator(commands.CheckFailure):
 
 def is_in_dms(ctx):
     if ctx.guild is None:
-        raise commands.NoPrivateMessage("Why are you performing this command in DMs?")
+        raise commands.NoPrivateMessage(phrases["no_dms"])
     return True
 
 
@@ -36,15 +37,15 @@ class General(commands.Cog):
     @commands.command(hidden=True)
     @commands.is_owner()
     async def quit(self, ctx):
-        await ctx.send("bye bye :neutral_face:")
+        await ctx.send(phrases["shutdown"])
         await bot.close()
 
-    @commands.command()
-    @commands.has_role('test')
-    @commands.check(is_in_dms)
-    async def poke(self, ctx):
-        await ctx.author.send('boop')
-        await ctx.message.delete()
+    @commands.command(brief="Show IHS Bowling Club social media platforms")
+    async def social(self, ctx):
+        embed = discord.Embed(title="Bowling Club Social Media", color=discord.Color.orange())
+        for platform, link in social_media.items():
+            embed.add_field(name=platform, value=link, inline=False)
+        await ctx.send(embed=embed)
 
 
 class Administration(commands.Cog):
@@ -59,9 +60,9 @@ class Administration(commands.Cog):
 
     def cog_check(self, ctx):
         if ctx.guild is None:
-            raise commands.NoPrivateMessage("Why are you performing this command in DMs?")
+            raise commands.NoPrivateMessage(phrases["no_dms"])
         elif not ctx.author.permissions_in(ctx.channel).administrator:
-            raise NotAdministrator("You are not an administrator!")
+            raise NotAdministrator(phrases["not_admin"])
         return True
 
     @commands.command(brief="Put someone in the brig")
@@ -69,7 +70,7 @@ class Administration(commands.Cog):
         try:
             convert_unix_tz(time.time() + (duration * 60))
         except:
-            await ctx.send("Stop spamming numbers!")
+            await ctx.send(phrases["invalid_num_input"])
             return
         await self.add_to_brig(ctx.guild, member, duration)
 
@@ -81,7 +82,7 @@ class Administration(commands.Cog):
     async def listbrig(self, ctx):
         brig_members = self.state_data[str(ctx.guild.id)]["brigMembers"]
         if brig_members == {}:
-            await ctx.send("No one is in the brig! You can help change that.")
+            await ctx.send(phrases["brig_empty"])
             return
         embed = discord.Embed(title="The Brig", color=discord.Color.orange())
         for member_id, duration in brig_members.items():
@@ -89,7 +90,7 @@ class Administration(commands.Cog):
             duration_formatted = "{0} — {1} ({2} minutes)".format(
                 convert_unix_tz(duration[0]), convert_unix_tz(duration[1]), round((duration[1] - duration[0]) / 60, 2)
             ) if duration[1] != 0 else "Indefinite"
-            embed.add_field(name=member.name + "#" + member.discriminator, value=duration_formatted, inline=True)
+            embed.add_field(name=member.name + "#" + member.discriminator, value=duration_formatted, inline=False)
         await ctx.send(embed=embed)
 
     @tasks.loop(seconds=1.0)
@@ -110,12 +111,12 @@ class Administration(commands.Cog):
             file.truncate()
         role = discord.utils.get(guild.roles, name="THE BRIG")
         if role is None:
-            message = "No role named \"THE BRIG\" exists! Please create one before using `unbrig`."
+            message = phrases["no_role"].format("\"THE BRIG\"", "`unbrig`")
             await try_system_message(guild, message)
             return
         else:
             await member.remove_roles(role, reason="Removed from the brig")
-            message = "Removed {0} from the brig.".format(member.mention)
+            message = phrases["brig_remove"].format(member.mention)
             await try_system_message(guild, message)
 
     async def add_to_brig(self, guild: discord.Guild, member: discord.Member, duration: typing.Optional[float]):
@@ -131,14 +132,14 @@ class Administration(commands.Cog):
             file.truncate()
         role = discord.utils.get(guild.roles, name="THE BRIG")
         if role is None:
-            message = "No role named \"THE BRIG\" exists! Please create one before using this command."
+            message = phrases["no_role"].format("\"THE BRIG\"", "`brig`")
             await try_system_message(guild, message)
             return
         else:
             # TODO: Add event logging to file
             # TODO: Add event logging to server
             await member.add_roles(role, reason="Put in the brig")
-            message = "Added {0} to the brig {1}."\
+            message = phrases["brig_add"]\
                 .format(member.mention, "for " + str(duration) + " minutes" if duration else "indefinitely")
             await try_system_message(guild, message)
 
@@ -160,7 +161,7 @@ async def on_command_error(ctx, error):
         await ctx.send(error)
     else:
         # TODO: Add error logging to file
-        await ctx.send("Unknown issue. Contact fest1ve#4958 for help.")
+        await ctx.send(phrases["unknown_issue"])
         raise error
 
 
@@ -176,4 +177,4 @@ async def on_ready():
 
 bot.add_cog(General(bot))
 bot.add_cog(Administration(bot))
-bot.run(config.TOKEN)
+bot.run(secrets.TOKEN)
