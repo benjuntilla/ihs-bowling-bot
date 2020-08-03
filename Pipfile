@@ -6,19 +6,20 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-aiohttp = "==3.6.2"
-async-timeout = "==3.0.1"
-attrs = "==19.3.0"
-beautifulsoup4 = "==4.9.1"
-chardet = "==3.0.4"
-"discord.py" = "==1.3.4"
-idna = "==2.10"
-multidict = "==4.7.6"
-pytz = "==2020.1"
-soupsieve = "==2.0.1"
-typing-extensions = "==3.7.4.2"
-websockets = "==8.1"
-yarl = "==1.5.1"
+aiohttp = "*"
+async-timeout = "*"
+attrs = "*"
+beautifulsoup4 = "*"
+chardet = "*"
+"discord.py" = "*"
+idna = "*"
+multidict = "*"
+pytz = "*"
+soupsieve = "*"
+typing-extensions = "*"
+websockets = "*"
+yarl = "*"
+psycopg2 = "*"
 
 [requires]
 python_version = "3.8"
