@@ -69,8 +69,6 @@ class Administration(commands.Cog):
             '''
             cur.execute(sql)
         self.update_brig_members.start()
-        with open("bot_state.json", "r") as file:
-            self.state_data = json.load(file)
 
     def cog_unload(self):
         self.update_brig_members.cancel()
