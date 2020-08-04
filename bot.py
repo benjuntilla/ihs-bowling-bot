@@ -83,11 +83,12 @@ class Administration(commands.Cog):
 
     @commands.command(brief="Put someone in the brig")
     async def brig(self, ctx, member: discord.Member, duration: typing.Optional[int]):
-        try:
-            epoch_to_postgresql(time.time() + (duration * 60))
-        except:
-            await ctx.send(phrases["invalid_num_input"])
-            return
+        if duration is not None:
+            try:
+                epoch_to_postgresql(time.time() + (duration * 60))
+            except:
+                await ctx.send(phrases["invalid_num_input"])
+                return
         await self.add_to_brig(ctx.guild, member, duration)
 
     @commands.command(brief="Remove someone from the brig")
@@ -160,8 +161,8 @@ class Administration(commands.Cog):
                 brig_start = excluded.brig_start,
                 brig_end = excluded.brig_end;
             '''
-            brig_start = epoch_to_postgresql(time.time())
-            brig_end = epoch_to_postgresql(time.time() + (duration * 60))
+            brig_start = epoch_to_postgresql(time.time()) if duration is not None else None
+            brig_end = epoch_to_postgresql(time.time() + (duration * 60)) if duration is not None else None
             cur.execute(sql, (member.id, guild.id, brig_start, brig_end))
 
 
