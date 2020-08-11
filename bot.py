@@ -9,7 +9,7 @@ from pytz import timezone
 import time
 import typing
 
-bot = commands.Bot(command_prefix=";")
+bot = commands.Bot(command_prefix="-")
 
 
 class NotAdministrator(commands.CheckFailure):
