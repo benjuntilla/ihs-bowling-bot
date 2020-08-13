@@ -2,7 +2,6 @@ from config import *
 from datetime import datetime
 import discord
 from discord.ext import commands, tasks
-import json
 import os
 import psycopg2
 from pytz import timezone
@@ -64,6 +63,7 @@ class Administration(commands.Cog):
                 guild_id bigint,
                 brig_start timestamp NULL,
                 brig_end timestamp NULL,
+                stripped_roles bigint[],
                 PRIMARY KEY (member_id, guild_id)
             );
             '''
@@ -126,44 +126,58 @@ class Administration(commands.Cog):
                 await self.remove_from_brig(guild, member)
 
     async def remove_from_brig(self, guild: discord.Guild, member: discord.Member):
-        # Remove role
-        role = discord.utils.get(guild.roles, name="THE BRIG")
-        if role is None:
+        # Run checks
+        brig_role = discord.utils.get(guild.roles, name="THE BRIG")
+        if brig_role is None:
             message = phrases["no_role"].format("\"THE BRIG\"", "`unbrig`")
             await try_system_message(guild, message)
             return
-        else:
-            await member.remove_roles(role, reason="Removed from the brig")
-            message = phrases["brig_remove"].format(member.mention)
-            await try_system_message(guild, message)
+        # Update roles
+        with self.conn, self.conn.cursor() as cur:
+            sql = "SELECT stripped_roles FROM brigged_members WHERE member_id = %s AND guild_id=%s;"
+            cur.execute(sql, (member.id, guild.id))
+            stripped_roles = cur.fetchone()[0]
+        stripped_roles = list(map(lambda role_id: discord.utils.get(guild.roles, id=role_id), stripped_roles))
+        stripped_roles = [role for role in stripped_roles if role]
+        kept_roles = [role for role in member.roles if role != brig_role]
+        await member.edit(roles=stripped_roles + kept_roles, reason="Removed from the brig")
+        await try_system_message(guild, phrases["brig_remove"].format(member.mention))
         # Update db
         with self.conn, self.conn.cursor() as cur:
             sql = "DELETE FROM brigged_members WHERE member_id = %s AND guild_id = %s;"
             cur.execute(sql, (member.id, guild.id))
 
     async def add_to_brig(self, guild: discord.Guild, member: discord.Member, duration: typing.Optional[int]):
-        # Add role
-        role = discord.utils.get(guild.roles, name="THE BRIG")
-        if role is None:
+        # Run checks
+        brig_role = discord.utils.get(guild.roles, name="THE BRIG")
+        if brig_role is None:
             message = phrases["no_role"].format("\"THE BRIG\"", "`brig`")
             await try_system_message(guild, message)
             return
-        else:
-            await member.add_roles(role, reason="Put in the brig")
-            message = phrases["brig_add"]\
-                .format(member.mention, "for " + str(duration) + " minutes" if duration else "indefinitely")
-            await try_system_message(guild, message)
+        # Update roles
+        stripped_roles = []
+        kept_roles = []
+        for role in member.roles:
+            if not role.is_default() and not role.managed and role is not brig_role:
+                stripped_roles.append(role.id)
+            else:
+                kept_roles.append(role)
+        await member.edit(roles=[brig_role] + kept_roles, reason="Put in the brig")
+        message = phrases["brig_add"]\
+            .format(member.mention, "for " + str(duration) + " minutes" if duration else "indefinitely")
+        await try_system_message(guild, message)
         # Update db
         with self.conn, self.conn.cursor() as cur:
             sql = '''
-            INSERT INTO brigged_members VALUES (%s, %s, %s, %s)
+            INSERT INTO brigged_members VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (member_id, guild_id) DO UPDATE SET 
                 brig_start = excluded.brig_start,
-                brig_end = excluded.brig_end;
+                brig_end = excluded.brig_end,
+                stripped_roles = excluded.stripped_roles;
             '''
             brig_start = epoch_to_postgresql(time.time()) if duration is not None else None
             brig_end = epoch_to_postgresql(time.time() + (duration * 60)) if duration is not None else None
-            cur.execute(sql, (member.id, guild.id, brig_start, brig_end))
+            cur.execute(sql, (member.id, guild.id, brig_start, brig_end, stripped_roles))
 
 
 allowed_errors = {NotAdministrator, commands.NoPrivateMessage, commands.MissingRequiredArgument,
