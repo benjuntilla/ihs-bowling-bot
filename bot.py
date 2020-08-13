@@ -151,8 +151,10 @@ class Administration(commands.Cog):
         # Run checks
         brig_role = discord.utils.get(guild.roles, name="THE BRIG")
         if brig_role is None:
-            message = phrases["no_role"].format("\"THE BRIG\"", "`brig`")
-            await try_system_message(guild, message)
+            await try_system_message(guild, phrases["no_role"].format("\"THE BRIG\"", "`brig`"))
+            return
+        elif brig_role in member.roles:
+            await try_system_message(guild, phrases["brig_duplicate"])
             return
         # Update roles
         stripped_roles = []
