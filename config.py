@@ -13,5 +13,6 @@ phrases = {
 
 social_media = {
     "Instagram": "https://www.instagram.com/ihs.bowling/",
-    "Discord": "https://discord.com/invite/psMN6xn"
+    "Discord": "https://discord.com/invite/psMN6xn",
+    "Youtube": "https://www.youtube.com/channel/UCPKRhtvErL5fsZxzv-CEe_w"
 }
